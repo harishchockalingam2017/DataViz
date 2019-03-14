@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<body>
+    <div id=#titleDiv> 
+      <h1>Divvy Bike Share Data in Chicago</h1>
+    </div>
+  
+    <button id="AllArrivals"> All Arrivals</button>
+    <button id="Q1Arrivals"> Q1 Arrivals</button>
+    <button id="Q2Arrivals"> Q2 Arrivals</button>
+    <button id="Q3Arrivals"> Q3 Arrivals</button>
+    <button id="Q4Arrivals"> Q4 Arrivals</button>
+    <button id="TripLength"> Average Trip Length</button>
+    <button id="Age"> Average Age of Rider</button>
+    <button id="Gender"> Gender</button>
+    <button id="NetTraffic"> Net Traffic</button>
+    
+  </body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/d3.geo.tile.v0.min.js"></script>
+<script src="d3.mapzoom.js"></script>
+<script src="//d3js.org/d3-scale-chromatic.v0.3.min.js"></script>
+<script>
+
+
+
+var width = 1500,
+    height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+  x: 900,
+  y: 500,
+  width: 20,
+  height: 20
+};
+
+var mapzoom = d3.mapzoom()
+    .center(center)
+    .scale(scale)
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+
+//////////////////////Original Data//////////////////////////
+
+d3.csv("DivvyStations.csv", function(data) {
+   data.forEach(function(d) {
+
+      d.coord = [d.latitude, d.longitude]
+        .map(parseFloat)
+        .reverse();
+
+      
+   });
+
+   var colorScale = d3.scale.linear()
+    .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
+    .range(['#084594', '#eff3ff']);
+
+    var sizeScale = d3.scale.linear()
+    .domain([1,10000])
+    .range([2, 5]);
+
+    console.log(sizeScale.domain());
+
+   var circles = svg.append("g")
+    .selectAll("circle")
+      .data(data)
+    .enter().append("circle")
+      .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+      .attr("fill", function(d) { return colorScale(d["perc_subs"])})
+      .attr("stroke", "black");
+      
+    circles
+        .append("title")
+        .text(function(d) { return d["name"] + '\n' 
+        + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+        + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+        + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+        + 'Average age: ' + d["avg_age"] + '\n' 
+        + 'Percent Male: ' + d["perc_male"] + '\n' 
+        + 'Percent Subscribers: ' + d["perc_subs"] 
+    });
+
+
+   mapzoom.addLayer(function() {      
+        circles
+            .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+    });
+
+  // Create Color Legend
+
+  var colorLegend1 = svg.selectAll(".legend")
+    .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
+    .enter()
+    .append("g")
+    .attr("class", "legend")
+    .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+  colorLegend1.append("circle")
+    .attr('r', function (d, i) { if(i==0) return 5
+    if(i==1) return 5
+    if(i==2) return 2
+    if(i==3) return 12})
+    .style("fill", function (d, i) { if(i==0) return d
+      if(i==1) return d
+      if(i==2) return "Black"
+      if(i==3) return "Black"; });
+
+  colorLegend1.append("text")
+    .attr("x", 1.5*legendPos.width)
+    .attr("y", 0.7*legendPos.height)
+    .style('font-size', 7)
+    .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
+    if(i==1) return "High % of Subscribers"
+    if(i==2) return d
+    if(i==3) return d;});
+
+
+});
+
+///////////////////Q1 Data///////////////////
+
+d3.select("#Q1Arrivals").on("click", function() {
+
+  d3.select("svg").remove();
+
+  var width = 1500,
+  height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+  x: 900,
+  y: 500,
+  width: 20,
+  height: 20
+};
+
+var mapzoom = d3.mapzoom()
+    .center(center)
+    .scale(scale)
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+  d3.csv("DivvyStationsQ1.csv", function(data) {
+   data.forEach(function(d) {
+
+      d.coord = [d.latitude, d.longitude]
+        .map(parseFloat)
+        .reverse();
+
+      
+   });
+
+   var colorScale = d3.scale.linear()
+    .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
+    .range(['#084594', '#eff3ff']);
+
+    var sizeScale = d3.scale.linear()
+    .domain([1,10000])
+    .range([2, 5]);
+
+    console.log(sizeScale.domain());
+
+   var circles = svg.append("g")
+    .selectAll("circle")
+      .data(data)
+    .enter().append("circle")
+      .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+      .attr("fill", function(d) { return colorScale(d["perc_subs"])})
+      .attr("stroke", "black");
+      
+    circles
+        .append("title")
+        .text(function(d) { return d["name"] + '\n' 
+        + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+        + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+        + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+        + 'Average age: ' + d["avg_age"] + '\n' 
+        + 'Percent Male: ' + d["perc_male"] + '\n' 
+        + 'Percent Subscribers: ' + d["perc_subs"] 
+    });
+
+
+   mapzoom.addLayer(function() {      
+        circles
+            .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+    });
+
+  // Create Color Legend
+
+  var colorLegend1 = svg.selectAll(".legend")
+    .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
+    .enter()
+    .append("g")
+    .attr("class", "legend")
+    .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+  colorLegend1.append("circle")
+    .attr('r', function (d, i) { if(i==0) return 5
+    if(i==1) return 5
+    if(i==2) return 2
+    if(i==3) return 12})
+    .style("fill", function (d, i) { if(i==0) return d
+      if(i==1) return d
+      if(i==2) return "Black"
+      if(i==3) return "Black"; });
+
+  colorLegend1.append("text")
+    .attr("x", 1.5*legendPos.width)
+    .attr("y", 0.7*legendPos.height)
+    .style('font-size', 7)
+    .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
+    if(i==1) return "High % of Subscribers"
+    if(i==2) return d
+    if(i==3) return d;});
+
+
+});
+})
+
+///////////////////Q2 Data///////////////////
+
+d3.select("#Q2Arrivals").on("click", function() {
+
+  d3.select("svg").remove();
+
+  var width = 1500,
+  height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+  x: 900,
+  y: 500,
+  width: 20,
+  height: 20
+};
+
+var mapzoom = d3.mapzoom()
+    .center(center)
+    .scale(scale)
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStationsQ2.csv", function(data) {
+ data.forEach(function(d) {
+
+    d.coord = [d.latitude, d.longitude]
+      .map(parseFloat)
+      .reverse();
+
+    
+ });
+
+ var colorScale = d3.scale.linear()
+  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
+  .range(['#084594', '#eff3ff']);
+
+  var sizeScale = d3.scale.linear()
+    .domain([1,10000])
+    .range([2, 5]);
+
+  console.log(sizeScale.domain());
+
+ var circles = svg.append("g")
+  .selectAll("circle")
+    .data(data)
+  .enter().append("circle")
+    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
+    .attr("stroke", "black");
+    
+  circles
+      .append("title")
+      .text(function(d) { return d["name"] + '\n' 
+      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+      + 'Average age: ' + d["avg_age"] + '\n' 
+      + 'Percent Male: ' + d["perc_male"] + '\n' 
+      + 'Percent Subscribers: ' + d["perc_subs"] 
+  });
+
+
+ mapzoom.addLayer(function() {      
+      circles
+          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+  });
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
+  .enter()
+  .append("g")
+  .attr("class", "legend")
+  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+  .attr('r', function (d, i) { if(i==0) return 5
+  if(i==1) return 5
+  if(i==2) return 2
+  if(i==3) return 12})
+  .style("fill", function (d, i) { if(i==0) return d
+    if(i==1) return d
+    if(i==2) return "Black"
+    if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+  .attr("x", 1.5*legendPos.width)
+  .attr("y", 0.7*legendPos.height)
+  .style('font-size', 7)
+  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
+  if(i==1) return "High % of Subscribers"
+  if(i==2) return d
+  if(i==3) return d;});
+
+
+});
+})
+
+
+///////////////////Q3 Data///////////////////
+
+d3.select("#Q3Arrivals").on("click", function() {
+
+  d3.select("svg").remove();
+
+  var width = 1500,
+  height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+  x: 900,
+  y: 500,
+  width: 20,
+  height: 20
+};
+
+var mapzoom = d3.mapzoom()
+    .center(center)
+    .scale(scale)
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStationsQ3.csv", function(data) {
+ data.forEach(function(d) {
+
+    d.coord = [d.latitude, d.longitude]
+      .map(parseFloat)
+      .reverse();
+
+    
+ });
+
+ var colorScale = d3.scale.linear()
+  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
+  .range(['#084594', '#eff3ff']);
+
+  var sizeScale = d3.scale.linear()
+    .domain([1,10000])
+    .range([2, 5]);
+
+  console.log(sizeScale.domain());
+
+ var circles = svg.append("g")
+  .selectAll("circle")
+    .data(data)
+  .enter().append("circle")
+    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
+    .attr("stroke", "black");
+    
+  circles
+      .append("title")
+      .text(function(d) { return d["name"] + '\n' 
+      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+      + 'Average age: ' + d["avg_age"] + '\n' 
+      + 'Percent Male: ' + d["perc_male"] + '\n' 
+      + 'Percent Subscribers: ' + d["perc_subs"] 
+  });
+
+
+ mapzoom.addLayer(function() {      
+      circles
+          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+  });
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
+  .enter()
+  .append("g")
+  .attr("class", "legend")
+  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+  .attr('r', function (d, i) { if(i==0) return 5
+  if(i==1) return 5
+  if(i==2) return 2
+  if(i==3) return 12})
+  .style("fill", function (d, i) { if(i==0) return d
+    if(i==1) return d
+    if(i==2) return "Black"
+    if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+  .attr("x", 1.5*legendPos.width)
+  .attr("y", 0.7*legendPos.height)
+  .style('font-size', 7)
+  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
+  if(i==1) return "High % of Subscribers"
+  if(i==2) return d
+  if(i==3) return d;});
+
+
+});
+})
+
+
+///////////////////Q4 Data///////////////////
+
+d3.select("#Q4Arrivals").on("click", function() {
+
+  d3.select("svg").remove();
+
+  var width = 1500,
+  height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+  x: 900,
+  y: 500,
+  width: 20,
+  height: 20
+};
+
+var mapzoom = d3.mapzoom()
+    .center(center)
+    .scale(scale)
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStationsQ4.csv", function(data) {
+ data.forEach(function(d) {
+
+    d.coord = [d.latitude, d.longitude]
+      .map(parseFloat)
+      .reverse();
+
+    
+ });
+
+ var colorScale = d3.scale.linear()
+  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
+  .range(['#084594', '#eff3ff']);
+
+  var sizeScale = d3.scale.linear()
+    .domain([1,10000])
+    .range([2, 5]);
+
+  console.log(sizeScale.domain());
+
+ var circles = svg.append("g")
+  .selectAll("circle")
+    .data(data)
+  .enter().append("circle")
+    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
+    .attr("stroke", "black");
+    
+  circles
+      .append("title")
+      .text(function(d) { return d["name"] + '\n' 
+      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+      + 'Average age: ' + d["avg_age"] + '\n' 
+      + 'Percent Male: ' + d["perc_male"] + '\n' 
+      + 'Percent Subscribers: ' + d["perc_subs"] 
+  });
+
+
+ mapzoom.addLayer(function() {      
+      circles
+          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+  });
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
+  .enter()
+  .append("g")
+  .attr("class", "legend")
+  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+  .attr('r', function (d, i) { if(i==0) return 5
+  if(i==1) return 5
+  if(i==2) return 2
+  if(i==3) return 12})
+  .style("fill", function (d, i) { if(i==0) return d
+    if(i==1) return d
+    if(i==2) return "Black"
+    if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+  .attr("x", 1.5*legendPos.width)
+  .attr("y", 0.7*legendPos.height)
+  .style('font-size', 7)
+  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
+  if(i==1) return "High % of Subscribers"
+  if(i==2) return d
+  if(i==3) return d;});
+
+
+});
+})
+
+
+///////////////////Back to Original Data///////////////////
+
+d3.select("#AllArrivals").on("click", function() {
+
+  d3.select("svg").remove();
+
+var width = 1500,
+  height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+  x: 900,
+  y: 500,
+  width: 20,
+  height: 20
+};
+
+var mapzoom = d3.mapzoom()
+    .center(center)
+    .scale(scale)
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStations.csv", function(data) {
+ data.forEach(function(d) {
+
+    d.coord = [d.latitude, d.longitude]
+      .map(parseFloat)
+      .reverse();
+
+    
+ });
+
+ var colorScale = d3.scale.linear()
+  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
+  .range(['#084594', '#eff3ff']);
+
+  var sizeScale = d3.scale.linear()
+    .domain([1,10000])
+    .range([2, 5]);
+
+ var circles = svg.append("g")
+  .selectAll("circle")
+    .data(data)
+  .enter().append("circle")
+    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
+    .attr("stroke", "black");
+    
+  circles
+      .append("title")
+      .text(function(d) { return d["name"] + '\n' 
+      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+      + 'Average age: ' + d["avg_age"] + '\n' 
+      + 'Percent Male: ' + d["perc_male"] + '\n' 
+      + 'Percent Subscribers: ' + d["perc_subs"] 
+  });
+
+
+ mapzoom.addLayer(function() {      
+      circles
+          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+  });
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
+  .enter()
+  .append("g")
+  .attr("class", "legend")
+  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+  .attr('r', function (d, i) { if(i==0) return 5
+  if(i==1) return 5
+  if(i==2) return 2
+  if(i==3) return 12})
+  .style("fill", function (d, i) { if(i==0) return d
+    if(i==1) return d
+    if(i==2) return "Black"
+    if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+  .attr("x", 1.5*legendPos.width)
+  .attr("y", 0.7*legendPos.height)
+  .style('font-size', 7)
+  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
+  if(i==1) return "High % of Subscribers"
+  if(i==2) return d
+  if(i==3) return d;});
+
+
+});
+})
+
+///////////////////Average Trip Duration as Color///////////////////
+
+d3.select("#TripLength").on("click", function() {
+
+d3.select("svg").remove();
+
+var width = 1500,
+height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+x: 900,
+y: 500,
+width: 20,
+height: 20
+};
+
+var mapzoom = d3.mapzoom()
+  .center(center)
+  .scale(scale)
+
+var svg = d3.select("body").append("svg")
+  .attr("width", width)
+  .attr("height", height)
+  .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStations.csv", function(data) {
+data.forEach(function(d) {
+
+  d.coord = [d.latitude, d.longitude]
+    .map(parseFloat)
+    .reverse();
+
+  
+});
+
+var colorScale = d3.scale.linear()
+.domain([120, 190])
+.range(['#fee5d9', '#99000d']);
+
+var sizeScale = d3.scale.linear()
+  .domain([1,10000])
+  .range([2, 5]);
+
+var circles = svg.append("g")
+.selectAll("circle")
+  .data(data)
+.enter().append("circle")
+  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+  .attr("fill", function(d) { return colorScale(d["avg_trip_duration"])})
+  .attr("stroke", "black");
+  
+circles
+    .append("title")
+    .text(function(d) { return d["name"] + '\n' 
+    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+    + 'Average age: ' + d["avg_age"] + '\n' 
+    + 'Percent Male: ' + d["perc_male"] + '\n' 
+    + 'Percent Subscribers: ' + d["perc_subs"] 
+});
+
+
+mapzoom.addLayer(function() {      
+    circles
+        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+});
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+.data(['#fee5d9', '#99000d', "Low # of Arrivals", "High # of Arrivals"])
+.enter()
+.append("g")
+.attr("class", "legend")
+.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+.attr('r', function (d, i) { if(i==0) return 5
+if(i==1) return 5
+if(i==2) return 2
+if(i==3) return 12})
+.style("fill", function (d, i) { if(i==0) return d
+  if(i==1) return d
+  if(i==2) return "Black"
+  if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+.attr("x", 1.5*legendPos.width)
+.attr("y", 0.7*legendPos.height)
+.style('font-size', 7)
+.text(function(d, i) { if(i==0) return "Shorter Trips" 
+if(i==1) return "Longer Trips"
+if(i==2) return d
+if(i==3) return d;});
+
+
+});
+})
+
+
+///////////////////Average Age as Color///////////////////
+
+d3.select("#Age").on("click", function() {
+
+d3.select("svg").remove();
+
+var width = 1500,
+height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+x: 900,
+y: 500,
+width: 20,
+height: 20
+};
+
+var mapzoom = d3.mapzoom()
+  .center(center)
+  .scale(scale)
+
+var svg = d3.select("body").append("svg")
+  .attr("width", width)
+  .attr("height", height)
+  .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStations.csv", function(data) {
+data.forEach(function(d) {
+
+  d.coord = [d.latitude, d.longitude]
+    .map(parseFloat)
+    .reverse();
+
+  
+});
+
+var colorScale = d3.scale.linear()
+.domain([30, 43])
+.range(['#dadaeb', '#4a1486']);
+
+var sizeScale = d3.scale.linear()
+  .domain([1,10000])
+  .range([2, 5]);
+
+var circles = svg.append("g")
+.selectAll("circle")
+  .data(data)
+.enter().append("circle")
+  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+  .attr("fill", function(d) { return colorScale(d["avg_age"])})
+  .attr("stroke", "black");
+  
+circles
+    .append("title")
+    .text(function(d) { return d["name"] + '\n' 
+    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+    + 'Average age: ' + d["avg_age"] + '\n' 
+    + 'Percent Male: ' + d["perc_male"] + '\n' 
+    + 'Percent Subscribers: ' + d["perc_subs"] 
+});
+
+
+mapzoom.addLayer(function() {      
+    circles
+        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+});
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+.data(['#dadaeb', '#4a1486', "Low # of Arrivals", "High # of Arrivals"])
+.enter()
+.append("g")
+.attr("class", "legend")
+.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+.attr('r', function (d, i) { if(i==0) return 5
+if(i==1) return 5
+if(i==2) return 2
+if(i==3) return 12})
+.style("fill", function (d, i) { if(i==0) return d
+  if(i==1) return d
+  if(i==2) return "Black"
+  if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+.attr("x", 1.5*legendPos.width)
+.attr("y", 0.7*legendPos.height)
+.style('font-size', 7)
+.text(function(d, i) { if(i==0) return "Younger Average Age" 
+if(i==1) return "Older Average Age"
+if(i==2) return d
+if(i==3) return d;});
+
+
+});
+})
+
+
+///////////////////Gender as Color///////////////////
+
+d3.select("#Gender").on("click", function() {
+
+d3.select("svg").remove();
+
+var width = 1500,
+height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+x: 900,
+y: 500,
+width: 20,
+height: 20
+};
+
+var mapzoom = d3.mapzoom()
+  .center(center)
+  .scale(scale)
+
+var svg = d3.select("body").append("svg")
+  .attr("width", width)
+  .attr("height", height)
+  .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStations.csv", function(data) {
+data.forEach(function(d) {
+
+  d.coord = [d.latitude, d.longitude]
+    .map(parseFloat)
+    .reverse();
+
+  
+});
+
+var colorScale = d3.scale.linear()
+.domain([.5, .9])
+.range(['#c51b7d', '#4d9221']);
+
+var sizeScale = d3.scale.linear()
+  .domain([1,10000])
+  .range([2, 5]);
+
+var circles = svg.append("g")
+.selectAll("circle")
+  .data(data)
+.enter().append("circle")
+  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+  .attr("fill", function(d) { return colorScale(d["perc_male"])})
+  .attr("stroke", "black");
+  
+circles
+    .append("title")
+    .text(function(d) { return d["name"] + '\n' 
+    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+    + 'Average age: ' + d["avg_age"] + '\n' 
+    + 'Percent Male: ' + d["perc_male"] + '\n' 
+    + 'Percent Subscribers: ' + d["perc_subs"] 
+});
+
+
+mapzoom.addLayer(function() {      
+    circles
+        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+});
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+.data(['#c51b7d', '#4d9221', "Low # of Arrivals", "High # of Arrivals"])
+.enter()
+.append("g")
+.attr("class", "legend")
+.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+.attr('r', function (d, i) { if(i==0) return 5
+if(i==1) return 5
+if(i==2) return 2
+if(i==3) return 12})
+.style("fill", function (d, i) { if(i==0) return d
+  if(i==1) return d
+  if(i==2) return "Black"
+  if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+.attr("x", 1.5*legendPos.width)
+.attr("y", 0.7*legendPos.height)
+.style('font-size', 7)
+.text(function(d, i) { if(i==0) return "Higher % Female" 
+if(i==1) return "Higher % Male"
+if(i==2) return d
+if(i==3) return d;});
+
+
+});
+})
+
+
+///////////////////Net Traffic as Color///////////////////
+
+d3.select("#NetTraffic").on("click", function() {
+
+d3.select("svg").remove();
+
+var width = 1500,
+height = 2000;
+
+var center = [-87.6847, 41.900], scale = 60000;
+
+var legendPos = {
+x: 900,
+y: 500,
+width: 20,
+height: 20
+};
+
+var mapzoom = d3.mapzoom()
+  .center(center)
+  .scale(scale)
+
+var svg = d3.select("body").append("svg")
+  .attr("width", width)
+  .attr("height", height)
+  .call(mapzoom);
+
+var frame = svg.append("g")
+
+mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+
+var projection = mapzoom.projection()
+
+d3.csv("DivvyStations.csv", function(data) {
+data.forEach(function(d) {
+
+  d.coord = [d.latitude, d.longitude]
+    .map(parseFloat)
+    .reverse();
+
+  d.net = d.n_of_trips_to - d.n_of_trips_from;
+
+  
+});
+
+var colorScale = d3.scale.linear()
+.domain([-10000,10000])
+.range(['#b2182b', '#2166ac']);
+
+var sizeScale = d3.scale.linear()
+  .domain([1,10000])
+  .range([2, 5]);
+
+var circles = svg.append("g")
+.selectAll("circle")
+  .data(data)
+.enter().append("circle")
+  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
+  .attr("fill", function(d) { return colorScale(d["net"])})
+  .attr("stroke", "black");
+  
+circles
+    .append("title")
+    .text(function(d) { return d["name"] + '\n' 
+    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
+    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
+    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
+    + 'Average age: ' + d["avg_age"] + '\n' 
+    + 'Percent Male: ' + d["perc_male"] + '\n' 
+    + 'Percent Subscribers: ' + d["perc_subs"] 
+});
+
+
+mapzoom.addLayer(function() {      
+    circles
+        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
+});
+
+// Create Color Legend
+
+var colorLegend1 = svg.selectAll(".legend")
+.data(['#b2182b', '#2166ac', "Low # of Arrivals", "High # of Arrivals"])
+.enter()
+.append("g")
+.attr("class", "legend")
+.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+
+colorLegend1.append("circle")
+.attr('r', function (d, i) { if(i==0) return 5
+if(i==1) return 5
+if(i==2) return 2
+if(i==3) return 12})
+.style("fill", function (d, i) { if(i==0) return d
+  if(i==1) return d
+  if(i==2) return "Black"
+  if(i==3) return "Black"; });
+
+colorLegend1.append("text")
+.attr("x", 1.5*legendPos.width)
+.attr("y", 0.7*legendPos.height)
+.style('font-size', 7)
+.text(function(d, i) { if(i==0) return "Departures > Arrivals" 
+if(i==1) return "Arrivals > Departures"
+if(i==2) return d
+if(i==3) return d;});
+
+
+});
+})
+
+
+/* Include attribution: */
+d3.select("body")
+    .append("div")
+      .text("Map data and imagery (c) Open Street Map");
+
+</script>
+<body>
