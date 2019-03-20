@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Chord</title>
+<style>
+body {
+  font: 10px sans-serif;
+}
+
+.office-label {
+  font-size: 14px;
+  font: sans-serif;
+  text-anchor: middle;
+}
+
+.ribbons {
+  fill-opacity: 0.6;
+}
+
+#title {
+  font-size: 18px;
+}
+
+svg {
+  border: 1px solid #f0f;
+}
+
+</style>
+<body>
+  <div id='title'>Chord Diagram for Some Top Divvy Stations Where Rides End</div>
+<svg width="500" height="500"></svg>
+
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://cdn.rawgit.com/Gmousse/dataframe-js/master/dist/dataframe.js"></script>
+<script src="https://d3js.org/d3-array.v1.min.js"></script>
+<script src="https://d3js.org/d3-path.v1.min.js"></script>
+<script src="https://d3js.org/d3-chord.v1.min.js"></script>
+
+<script>
+console.log('hi')
+function fade(opacity) {
+  return function(d, i) {
+    ribbons
+        .filter(function(d) {
+          return d.source.index != i && d.target.index != i;
+        })
+      .transition()
+        .style("opacity", opacity);
+  };
+}
+
+var STV_matrix = [
+  [8858, 923, 223, 336, 3194, 197, 182, 3099, 390, 2821],
+  [813, 793, 1573, 222, 191, 2535, 190, 93, 3981, 156],
+  [249,1892,381,697,130,116,1021,54,435,41],
+  [161,264,997,398,140,554,544,29,943,136],
+  [3428,405,342,140,2945,262,90,417,281,51],
+  [218,3360,154,904,107,196,1176,29,393,60],
+  [182,110,896,275,37,825,333,38,1830,151],
+  [3652,234,40,138,579,67,45,2465,106,662],
+  [431,4112,724,951,201,800,2048,65,376,50],
+  [2897,349,110,316,738,114,155,754,127,1850]
+];
+
+console.log(STV_matrix)
+
+/*********************************/
+//Allow to vary based on data chosen//
+/*********************************/
+
+var office = ['35', '43', '77', '81', '90', '91', '133', '177', '192', '268']
+
+/*********************************/
+
+//Initialize canvas and inner/outer radii of the chords
+var svg = d3.select("svg"),
+    width = +svg.attr("width"),
+    height = +svg.attr("height"),
+    outerRadius = Math.min(width, height) * 0.5 - 65,
+    innerRadius = outerRadius - 20;
+
+//Set number format to show $M for millions with thousands separator (i.e. $1,000M). 
+var formatValue = d3.formatPrefix("$,.0", 1e3);
+
+//Initialize chord diagram
+var chord = d3.chord()
+    .padAngle(0.05)
+    .sortSubgroups(d3.descending);
+
+//Set Arc Raddii
+var arc = d3.arc()
+    .innerRadius(innerRadius)
+    .outerRadius(outerRadius);
+
+//Set Ribbbons
+var ribbon = d3.ribbon()
+    .radius(innerRadius);
+
+//Initialize colors to an ordinal scheme with 20 categories
+var color = d3.scaleOrdinal(d3.schemeCategory20);
+
+
+//What does this do?
+var g = svg.append("g")
+    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+    .datum(chord(STV_matrix));
+
+
+
+//Defines each "group" in the chord diagram
+var group = g.append("g")
+    .attr("class", "groups")
+  .selectAll("g")
+  .data(function(chords) { return chords.groups; })
+  .enter().append("g")
+
+
+//Draw the radial arcs for each group
+group.append("path")
+    .style("fill", function(d) { return color(d.index); })
+    .style("stroke", function(d) { return d3.rgb(color(d.index)).darker(); })
+    .attr("d", arc)
+    .on("mouseover", fade(.1))         /* Where attempt at mouseover is made */
+    .on("mouseout", fade(1))
+
+
+group.append("title").text(function(d) {
+        return groupTip(d);
+    });
+
+
+
+//Add labels to each group
+group.append("text")
+      .attr("dy", ".35em") //width
+      .attr("class", "office-label")
+      .attr("transform", function(d,i) { //angle
+        d.angle = (d.startAngle + d.endAngle) / 2; //calculate the average of the start angle and the end angle
+        d.name = office[i]; //assignment for the city
+        return "rotate(" + (d.angle * 180 / Math.PI) + ")" +
+          "translate(0," + -1.1 * (outerRadius + 10) + ")" +
+          ((d.angle > 0 && d.angle < Math.PI * 5 / 4) ? "rotate(270)" : "rotate(90)");
+      }) //to spin when the angle between 135 to 225 degrees
+      .text(function(d) {
+        return d.name;
+      });
+      
+
+//Draw the ribbons that go from group to group
+var ribbons =   g.append("g")
+   .attr("class", "ribbons")
+  .selectAll("path")
+  .data(function(chords) { return chords; })
+  .enter().append("path")
+    .attr("d", ribbon)
+    .style("fill", function(d) { return color(d.target.index); })
+    .style("stroke", function(d) { return d3.rgb(color(d.target.index)).darker(); });
+    
+ribbons.append("title").
+    text(function(d){return chordTip(d);});
+
+function chordTip(d){
+  var p = d3.format(".2%")
+     return "Rides Between Stations:   \n"
+        + office[d.source.index] + "  →  " + office[d.target.index] + ":   " + d.target.value + " Rides" + "\n"
+        + office[d.target.index] + "  →  " + office[d.source.index] + ":   " + d.source.value + " Rides";
+}
+
+function groupTip(d) {
+        return "Total Rides Ending @ Station " + office[d.index] + ":\n" + d.value
+    }
+
+</script>
+</body>

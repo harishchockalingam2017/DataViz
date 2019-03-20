@@ -1,1128 +1,580 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
-<body>
-    <div id=#titleDiv> 
-      <h1>Divvy Bike Share Data in Chicago</h1>
-    </div>
+<head>
+  <meta charset="utf-8">
   
-    <button id="AllArrivals"> All Arrivals</button>
-    <button id="Q1Arrivals"> Q1 Arrivals</button>
-    <button id="Q2Arrivals"> Q2 Arrivals</button>
-    <button id="Q3Arrivals"> Q3 Arrivals</button>
-    <button id="Q4Arrivals"> Q4 Arrivals</button>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.0.0/d3.min.js"></script>
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.12.0/mapbox-gl.js'></script>
+  <script src="https://cdn.rawgit.com/Gmousse/dataframe-js/master/dist/dataframe.js"></script>
+
+ 
+  <style>
+    #map { 
+      position:absolute; 
+      width: 50%;
+      height: 50%;
+    }
+  .mapsvg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+  
+    div.peakTime{
+      position: absolute;
+      top: 700px;
+      width:100%;
+    }
+div.chord{
+  position: absolute;
+  top:1500px;
+}
+  
+    body {
+    font: 10px sans-serif;
+  }
+
+    .office-label {
+      font-size: 14px;
+      font: sans-serif;
+      text-anchor: middle;
+    }
+
+    .ribbons {
+      fill-opacity: 0.6;
+    }
+
+    #title {
+      font-size: 18px;
+    }
+
+    
+  </style>
+</head>
+
+<body>
+    <div id=#titleDiv>
+    <h1> Chicago's Divvy Bikeshare Flow</h1>
+    </div>
+
+    <div id=#summary>
+      <p>Plan your bike ride around the city. Explore the map to see traffic in different 
+      stations. <br/>Hover over the dots for more information on each station or scrolling down the page,<br/>
+      to reduce wait time and make your ride around the city more enjoyable! </p> 
+
+  <button id="AllArrivals"> All Traffic</button>
+    <button id="Q1Arrivals"> Q1 Traffic</button>
+    <button id="Q2Arrivals"> Q2 Traffic</button>
+    <button id="Q3Arrivals"> Q3 Traffic</button>
+    <button id="Q4Arrivals"> Q4 Traffic</button>
     <button id="TripLength"> Average Trip Length</button>
     <button id="Age"> Average Age of Rider</button>
     <button id="Gender"> Gender</button>
-    <button id="NetTraffic"> Net Traffic</button>
+    </div>
     
-  </body>
-<script src="http://d3js.org/d3.v3.min.js"></script>
-<script src="http://d3js.org/d3.geo.tile.v0.min.js"></script>
-<script src="d3.mapzoom.js"></script>
-<script src="//d3js.org/d3-scale-chromatic.v0.3.min.js"></script>
-<script>
 
+    <div id="map"></div>
 
+    <div id=peakTime class="peakTime">
+    <h1> Peak Times </h1>
+    <p>Compare number of <span style='color:orange'>Arrivals</span> and <span style='color:lightblue'>Departures</span> by hour for popular stations on any selected day. Beat the Rush!<br/></p> 
 
-var width = 1500,
-    height = 2000;
+    <select id="selectStation"></select>
+    <select id="selectMonth"></select>
+    <select id="selectDay"></select>
+    </div>
 
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-  x: 900,
-  y: 500,
-  width: 20,
-  height: 20
-};
-
-var mapzoom = d3.mapzoom()
-    .center(center)
-    .scale(scale)
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-
-//////////////////////Original Data//////////////////////////
-
-d3.csv("DivvyStations.csv", function(data) {
-   data.forEach(function(d) {
-
-      d.coord = [d.latitude, d.longitude]
-        .map(parseFloat)
-        .reverse();
-
+    <div id="chord" class="chord">
+   <!--  <svg width="500" height="2500"></svg> -->
+    </div>
+  <script>
+      // A function that update the chart
+    
+//   //Creating Map Canvas and project station as points
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZW5qYWxvdCIsImEiOiJjaWhtdmxhNTIwb25zdHBsejk0NGdhODJhIn0.2-F2hS_oTZenAWc0BMf_uw'
+    var Station_global = 'Streeter Dr & Grand Ave'
+    var Month_global ='January'
+    var Day_global=1
+    var color_min='LightBlue'
+    var color_max='#084594'
+    var color_value='net'
+    var l_text1="Traffic:Departures > Arrivals"
+    var l_text2="Traffic:Arrivals > Departures"
+    
+    var bounds = [
+      [-87.5, 42.1], // east, north
+      [-87.85, 41.7]  //west,
+    ];
+    //Setup mapbox-gl map
+    var map = new mapboxgl.Map({
+      container: 'map', // container id
+      style: 'mapbox://styles/enjalot/cihmvv7kg004v91kn22zjptsc',
+      center: [-87.6847, 41.900],
+      zoom: 13,
+      maxZoom: 18,
+      minZoom: 10.5,
+      maxBounds: bounds
       
-   });
+    })
+    map.scrollZoom.enable()
+    map.addControl(new mapboxgl.Navigation());
 
-   var colorScale = d3.scale.linear()
-    .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
-    .range(['#084594', '#eff3ff']);
+    // Setup our svg layer that we can manipulate with d3
+    var container = map.getCanvasContainer()
+    var mapsvg = d3.select(container).append("svg")
+                    .attr('class','mapsvg')
 
-    var sizeScale = d3.scale.linear()
-    .domain([1,10000])
-    .range([2, 5]);
+    function project(d) {
+      return map.project(getLL(d));
+    }
+    function getLL(d) {
+      return new mapboxgl.LngLat(+d.longitude, +d.latitude)
+    }
 
-    console.log(sizeScale.domain());
+    d3.select("#AllArrivals").on("click", function() {
 
-   var circles = svg.append("g")
-    .selectAll("circle")
-      .data(data)
-    .enter().append("circle")
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStations.csv", ready)
+
+    color_min='LightBlue'
+    color_max='#084594'
+    color_value='net'
+
+    var l_text1="Traffic:Departures > Arrivals"
+    var l_text2="Traffic:Arrivals > Departures"
+
+  })
+
+    d3.select("#Q1Arrivals").on("click", function() {
+
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStationsQ1.csv", ready)
+
+    color_min='LightBlue'
+    color_max='#084594'
+    color_value='net'
+
+    var l_text1="Traffic:Departures > Arrivals"
+    var l_text2="Traffic:Arrivals > Departures"
+
+  })
+
+    d3.select("#Q2Arrivals").on("click", function() {
+
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStationsQ2.csv", ready)
+
+    color_min='LightBlue'
+    color_max='#084594'
+    color_value='net'
+
+    var l_text1="Traffic:Departures > Arrivals"
+    var l_text2="Traffic:Arrivals > Departures"
+
+  })
+
+    d3.select("#Q3Arrivals").on("click", function() {
+
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStationsQ3.csv", ready)
+
+    color_min='LightBlue'
+    color_max='#084594'
+    color_value='net'
+
+    var l_text1="Traffic:Departures > Arrivals"
+    var l_text2="Traffic:Arrivals > Departures"
+
+  })
+    d3.select("#Q4Arrivals").on("click", function() {
+
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStationsQ4.csv", ready)
+
+    color_min='LightBlue'
+    color_max='#084594'
+    color_value='net'
+
+    var l_text1="Traffic:Departures > Arrivals"
+    var l_text2="Traffic:Arrivals > Departures"
+
+  })
+
+    d3.select("#TripLength").on("click", function() {
+
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStations.csv", ready)
+
+    color_min='#fee5d9'
+    color_max='#99000d'
+
+    color_value='avg_trip_duration'
+
+    var l_text1="Short Trip Duration"
+    var l_text2="Long Trip Duration"
+
+  })
+
+    d3.select("#Age").on("click", function() {
+
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStations.csv", ready)
+
+    color_min='#dadaeb'
+    color_max='#4a1486'
+
+    color_value='avg_age'
+
+    var l_text1="Young Rider"
+    var l_text2="Older Rider"
+
+  })
+
+  d3.select("#Gender").on("click", function() {
+
+    d3.selectAll(".stations").remove();
+    d3.csv("Data/DivvyStations.csv", ready)
+
+    color_min='#c51b7d'
+    color_max='#4d9221'
+    color_value='perc_male'
+
+    var l_text1="Females > Males"
+    var l_text2="Males > Females"
+
+  })
+
+  d3.select("#Popular").on("click", function() {
+
+    
+
+  })
+
+    d3.csv("Data/DivvyStations.csv", ready) 
+
+    function ready(error,data){
+      //console.log(data[0], getLL(data[0]), project(data[0]))
+      data.forEach(function(d) {
+       d.net = d.n_of_trips_to - d.n_of_trips_from;
+      });
+
+      var colorScale = d3.scaleLinear()
+        .domain([0, 10000])
+        .range([color_min,color_max]);
+
+      var sizeScale = d3.scaleLinear()
+        .domain([1,10000])
+        .range([2, 5]);
+        
+      var dots = mapsvg.selectAll('.mapsvg').data(data).enter()
+      .append("circle")
+      .attr('class','stations')
+      .attr("cx",function(d) {return project(d).x;})
+      .attr("cy",function(d) {return project(d).y;})
       .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-      .attr("fill", function(d) { return colorScale(d["perc_subs"])})
-      .attr("stroke", "black");
-      
-    circles
+      .attr("fill", function(d) { return colorScale(d[color_value])})
+      .style("fill-opacity",0.6)
+      .style('stroke', "#004d60")
+
+      var p = d3.precisionRound(0.1, 10),
+      f = d3.format("." + p + "r");
+
+      dots
         .append("title")
         .text(function(d) { return d["name"] + '\n' 
         + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
         + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-        + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-        + 'Average age: ' + d["avg_age"] + '\n' 
-        + 'Percent Male: ' + d["perc_male"] + '\n' 
-        + 'Percent Subscribers: ' + d["perc_subs"] 
+        + 'Average trip duration: ' + f(d["avg_trip_duration"]) + '\n' 
+        + 'Average age: ' + f(d["avg_age"]) + '\n' 
+        + 'Percent Male: ' + f(d["perc_male"]*100) +'%'+ '\n'
+        + 'Percent Female: ' + f(1-d["perc_male"])*100 +'%'+ '\n' 
+        + 'Percent Subscribers: ' + f(d["perc_subs"]*100)+'%'
     });
 
 
-   mapzoom.addLayer(function() {      
-        circles
-            .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-    });
+      function render() {
+        dots
+        .attr("cx", function(d) { var x = project(d).x; return x})
+        .attr("cy", function(d) { var y = project(d).y; return y})
+      }
+      
+      // re-render our visualization whenever the view changes
+      map.on("viewreset", function() {
+        render()
+      })
+      map.on("move", function() {
+        render()
+      })
 
-  // Create Color Legend
-
-  var colorLegend1 = svg.selectAll(".legend")
-    .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
-    .enter()
-    .append("g")
-    .attr("class", "legend")
-    .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-  colorLegend1.append("circle")
-    .attr('r', function (d, i) { if(i==0) return 5
-    if(i==1) return 5
-    if(i==2) return 2
-    if(i==3) return 12})
-    .style("fill", function (d, i) { if(i==0) return d
-      if(i==1) return d
-      if(i==2) return "Black"
-      if(i==3) return "Black"; });
-
-  colorLegend1.append("text")
-    .attr("x", 1.5*legendPos.width)
-    .attr("y", 0.7*legendPos.height)
-    .style('font-size', 7)
-    .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
-    if(i==1) return "High % of Subscribers"
-    if(i==2) return d
-    if(i==3) return d;});
-
-
-});
-
-///////////////////Q1 Data///////////////////
-
-d3.select("#Q1Arrivals").on("click", function() {
-
-  d3.select("svg").remove();
-
-  var width = 1500,
-  height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-  x: 900,
-  y: 500,
-  width: 20,
-  height: 20
+      // render our initial visualization
+      render()
 };
+      // Create Color Legend
+      var svglegend = d3.select("#map").append("svg")
+        .attr("width", 1000)
+        .attr("height", 500)
 
-var mapzoom = d3.mapzoom()
-    .center(center)
-    .scale(scale)
+      var colorLegend1 = svglegend.selectAll(".svglegend")
+        .data([color_min, color_max,"Low # of Arrivals", "High # of Arrivals"])
+        .enter()
+        .append("g")
+        .attr("class", "legend")
+        .attr("transform", function(d, i) { return "translate(" + 850 + "," + i+20 + ")"; });
 
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .call(mapzoom);
+    colorLegend1.append("circle")
+      .attr('r', function (d, i) { if(i==0) return 5
+      if(i==1) return 5
+      if(i==2) return 2
+      if(i==3) return 12})
+      .style("fill", function (d, i) { if(i==0) return d
+        if(i==1) return d
+        if(i==2) return "Black"
+        if(i==3) return "Black"; });
 
-var frame = svg.append("g")
+    colorLegend1.append("text")
+      .attr("x", 30)
+      .attr("y", 1)
+      .style('font-size', 10)
+      .text(function(d, i) { if(i==0) return l_text1 
+      if(i==1) return l_text2
+      if(i==2) return d
+      if(i==3) return d;});
+    
+    var margin = {top: 100, right: 30, bottom: 30, left: 60},
+        width = 800,
+        height = 500;
 
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
+    var svgPeakTime = d3.select(".peakTime")
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .append("g")
+      .attr("transform","translate(" + 100 + "," +50 + ")");
 
-var projection = mapzoom.projection()
 
-  d3.csv("DivvyStationsQ1.csv", function(data) {
-   data.forEach(function(d) {
+    d3.csv("Data/topAll17.csv", function(data) {
+      var allStations = d3.map(data, function(d){return(d.from_station_name)}).keys()
+      var allMonths = ['January', 'February','March','April','May','June','July','August', 'September','October','November','December']
+      var allDays=['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31']
 
-      d.coord = [d.latitude, d.longitude]
-        .map(parseFloat)
-        .reverse();
+      d3.select("#selectStation")
+      .selectAll('myOptions')
+      .data(allStations)
+      .enter()
+      .append('option')
+      .text(function (d) { return d; }) // text showed in the menu
+      .attr("value", function (d) { return d; })
+
+      d3.select("#selectMonth")
+      .selectAll('myOptions')
+      .data(allMonths)
+      .enter()
+      .append('option')
+      .text(function (d) { return d; }) // text showed in the menu
+      .attr("value", function (d) { return d; })
+
+      d3.select("#selectDay")
+        .selectAll('myOptions')
+        .data(allDays)
+        .enter()
+        .append('option')
+        .text(function (d) { return d; }) // text showed in the menu
+        .attr("value", function (d) { return d; })
 
       
-   });
+      var parseTime = d3.timeParse("%-m/%-d/%Y %H:%M");
+      data.forEach(function(d) {
+        var date = new Date(d.start_time);
+        var monthName = new Array();
+        monthName[0] = "January";
+        monthName[1] = "February";
+        monthName[2] = "March";
+        monthName[3] = "April";
+        monthName[4] = "May";
+        monthName[5] = "June";
+        monthName[6] = "July";
+        monthName[7] = "August";
+        monthName[8] = "September";
+        monthName[9] = "October";
+        monthName[10] = "November";
+        monthName[11] = "December";
 
-   var colorScale = d3.scale.linear()
-    .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
-    .range(['#084594', '#eff3ff']);
+        d.month=monthName[date.getMonth()];
+        d.day = date.getDate();
+        d.hour = date.getHours();
+        
+    });
 
-    var sizeScale = d3.scale.linear()
-    .domain([1,10000])
-    .range([2, 5]);
+  
+    // filter to define startData
+    var startMonth = data.filter(function(d) { return d.month == Month_global; })
+    var startDay = startMonth.filter(function(d) { return d.day == Day_global; })
+    var startStation = startDay.filter(function(d) { return d.from_station_name == Station_global; })
+    var endStation = startDay.filter(function(d) { return d.to_station_name == Station_global; })
 
-    console.log(sizeScale.domain());
+    var countsD={}
 
-   var circles = svg.append("g")
-    .selectAll("circle")
-      .data(data)
-    .enter().append("circle")
-      .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-      .attr("fill", function(d) { return colorScale(d["perc_subs"])})
-      .attr("stroke", "black");
+    startStation.forEach(function(r){
+      if(!countsD[r.hour]){
+        countsD[r.hour]=0
+      }
+      countsD[r.hour]++
+    })
+    
+    var finalDepatures = [];
+    Object.keys(countsD).forEach(function(key){
+      finalDepatures.push({
+        hour:key, 
+        count:countsD[key]})
+    })
+    
+    var x=d3.scaleLinear()
+      .domain([0,24])
+      .range([0,480])
+
+    svgPeakTime.append('g')
+      .attr('transform',"translate("+5+","+400+")")
+      .call(d3.axisBottom(x).ticks(7))
+
+    var y = d3.scaleLinear()
+      .domain([d3.min(finalDepatures, function(d) { return d.count; }), d3.max(finalDepatures, function(d) { return d.count; })])
+      .range([400,0]);
+
+    svgPeakTime.append("g")
+      .attr('class','yaxis')
+      .call(d3.axisLeft(y));
+
+  
+    var lineD = svgPeakTime
+      .append('g')
+      .append("path")
+      .datum(finalDepatures)
+        .attr("d", d3.line()
+          .curve(d3.curveMonotoneX)
+          .x(function(d) { return x(d.hour) })
+          .y(function(d) { return y(+d.count) })
+        )
+      .attr("stroke", 'LightBlue')
+      .style("stroke-width", 4)
+      .style("fill", "none")
+
+    var countsA={}
+
+    endStation.forEach(function(r){
+      if(!countsA[r.hour]){
+        countsA[r.hour]=0
+      }
+      countsA[r.hour]++
+    })
+    
+    var finalArrivals = [];
+    Object.keys(countsA).forEach(function(key){
+      finalArrivals.push({
+        hour:key, 
+        count:countsA[key]})
+    })
+ 
+    var lineA = svgPeakTime
+      .append('g')
+      .append("path")
+      .datum(finalArrivals)
+        .attr("d", d3.line()
+          .curve(d3.curveMonotoneX)
+          .x(function(d) { return x(d.hour) })
+          .y(function(d) { return y(+d.count) })
+        )
+      .attr("stroke", 'Orange')
+      .style("stroke-width", 4)
+      .style("fill", "none")
+
+  
+
+    // When the button is changed, run the updateChart function
+    d3.select("#selectStation").on("change", function(d) {
+        // recover the option that has been chosen
+        var selectedStation = d3.select(this).property("value")
+        Station_global = selectedStation
+        // run the updateChart function with this selected option
+        update(data)
+        })
+    d3.select("#selectMonth").on("change", function(d) {
+         var selectedMonth = d3.select(this).property("value")
+         Month_global = selectedMonth
       
-    circles
-        .append("title")
-        .text(function(d) { return d["name"] + '\n' 
-        + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-        + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-        + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-        + 'Average age: ' + d["avg_age"] + '\n' 
-        + 'Percent Male: ' + d["perc_male"] + '\n' 
-        + 'Percent Subscribers: ' + d["perc_subs"] 
-    });
+         update(data) 
+       })
+    d3.select("#selectDay").on("change", function(d) {
+         var selectedDay= d3.select(this).property("value")
+         Day_global=selectedDay
+         update(data)
+    })
 
+    function update(data) {
 
-   mapzoom.addLayer(function() {      
-        circles
-            .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-    });
+      var startMonth1 = data.filter(function(d){return d.month==Month_global})
+      var startDay1 = startMonth1.filter(function(d){return d.day==Day_global})
+      var startStation1= startDay1.filter(function(d){return d.from_station_name==Station_global})
+      var endStation1 = startDay1.filter(function(d){return d.to_station_name==Station_global})
 
-  // Create Color Legend
+      var countsD1={}
+      var countsA1={}
+      var finalDepatures1=[]
+      var finalArrivals1=[]
 
-  var colorLegend1 = svg.selectAll(".legend")
-    .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
-    .enter()
-    .append("g")
-    .attr("class", "legend")
-    .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
+      startStation1.forEach(function(r){
+        if(!countsD1[r.hour]){
+          countsD1[r.hour]=0
+        }
+        countsD1[r.hour]++
+      })
+     
+      Object.keys(countsD1).forEach(function(key){
+        finalDepatures1.push({
+          hour:key, 
+          count:countsD1[key]})
+      })
+        endStation1.forEach(function(r){
+          if(!countsA1[r.hour]){
+            countsA1[r.hour]=0
+          }
+          countsA1[r.hour]++
+        })
+      
+      Object.keys(countsA1).forEach(function(key){
+        finalArrivals1.push({
+          hour:key, 
+          count:countsA1[key]})
+      })
+      y.domain([d3.min(finalDepatures1, function(d) { return d.count; }), d3.max(finalDepatures1, function(d) { return d.count; })])
+      
+      svgPeakTime.selectAll('.yaxis').remove()
+      
+      svgPeakTime.append("g").attr('class','yaxis')
+      .call(d3.axisLeft(y));
+      // Give these new data to update line
+      lineD
+          .datum(finalDepatures1)
+          .transition()
+          .duration(1000)
+          .attr("d", d3.line()
+            .curve(d3.curveMonotoneX)
+            .x(function(d) { return x(d.hour) })
+            .y(function(d) { return y(+d.count) })
+          )
+          .attr("stroke", 'LightBlue')
 
-  colorLegend1.append("circle")
-    .attr('r', function (d, i) { if(i==0) return 5
-    if(i==1) return 5
-    if(i==2) return 2
-    if(i==3) return 12})
-    .style("fill", function (d, i) { if(i==0) return d
-      if(i==1) return d
-      if(i==2) return "Black"
-      if(i==3) return "Black"; });
-
-  colorLegend1.append("text")
-    .attr("x", 1.5*legendPos.width)
-    .attr("y", 0.7*legendPos.height)
-    .style('font-size', 7)
-    .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
-    if(i==1) return "High % of Subscribers"
-    if(i==2) return d
-    if(i==3) return d;});
-
-
-});
+      lineA
+          .datum(finalArrivals1)
+          .transition()
+          .duration(1000)
+          .attr("d", d3.line()
+            .curve(d3.curveMonotoneX)
+            .x(function(d) { return x(d.hour) })
+            .y(function(d) { return y(+d.count) })
+          )
+          .attr("stroke", 'Orange')
+    }
+      
 })
 
-///////////////////Q2 Data///////////////////
-
-d3.select("#Q2Arrivals").on("click", function() {
-
-  d3.select("svg").remove();
-
-  var width = 1500,
-  height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-  x: 900,
-  y: 500,
-  width: 20,
-  height: 20
-};
-
-var mapzoom = d3.mapzoom()
-    .center(center)
-    .scale(scale)
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStationsQ2.csv", function(data) {
- data.forEach(function(d) {
-
-    d.coord = [d.latitude, d.longitude]
-      .map(parseFloat)
-      .reverse();
-
-    
- });
-
- var colorScale = d3.scale.linear()
-  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
-  .range(['#084594', '#eff3ff']);
-
-  var sizeScale = d3.scale.linear()
-    .domain([1,10000])
-    .range([2, 5]);
-
-  console.log(sizeScale.domain());
-
- var circles = svg.append("g")
-  .selectAll("circle")
-    .data(data)
-  .enter().append("circle")
-    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
-    .attr("stroke", "black");
-    
-  circles
-      .append("title")
-      .text(function(d) { return d["name"] + '\n' 
-      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-      + 'Average age: ' + d["avg_age"] + '\n' 
-      + 'Percent Male: ' + d["perc_male"] + '\n' 
-      + 'Percent Subscribers: ' + d["perc_subs"] 
-  });
-
-
- mapzoom.addLayer(function() {      
-      circles
-          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-  });
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
-  .enter()
-  .append("g")
-  .attr("class", "legend")
-  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-  .attr('r', function (d, i) { if(i==0) return 5
-  if(i==1) return 5
-  if(i==2) return 2
-  if(i==3) return 12})
-  .style("fill", function (d, i) { if(i==0) return d
-    if(i==1) return d
-    if(i==2) return "Black"
-    if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-  .attr("x", 1.5*legendPos.width)
-  .attr("y", 0.7*legendPos.height)
-  .style('font-size', 7)
-  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
-  if(i==1) return "High % of Subscribers"
-  if(i==2) return d
-  if(i==3) return d;});
-
-
-});
-})
-
-
-///////////////////Q3 Data///////////////////
-
-d3.select("#Q3Arrivals").on("click", function() {
-
-  d3.select("svg").remove();
-
-  var width = 1500,
-  height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-  x: 900,
-  y: 500,
-  width: 20,
-  height: 20
-};
-
-var mapzoom = d3.mapzoom()
-    .center(center)
-    .scale(scale)
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStationsQ3.csv", function(data) {
- data.forEach(function(d) {
-
-    d.coord = [d.latitude, d.longitude]
-      .map(parseFloat)
-      .reverse();
-
-    
- });
-
- var colorScale = d3.scale.linear()
-  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
-  .range(['#084594', '#eff3ff']);
-
-  var sizeScale = d3.scale.linear()
-    .domain([1,10000])
-    .range([2, 5]);
-
-  console.log(sizeScale.domain());
-
- var circles = svg.append("g")
-  .selectAll("circle")
-    .data(data)
-  .enter().append("circle")
-    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
-    .attr("stroke", "black");
-    
-  circles
-      .append("title")
-      .text(function(d) { return d["name"] + '\n' 
-      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-      + 'Average age: ' + d["avg_age"] + '\n' 
-      + 'Percent Male: ' + d["perc_male"] + '\n' 
-      + 'Percent Subscribers: ' + d["perc_subs"] 
-  });
-
-
- mapzoom.addLayer(function() {      
-      circles
-          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-  });
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
-  .enter()
-  .append("g")
-  .attr("class", "legend")
-  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-  .attr('r', function (d, i) { if(i==0) return 5
-  if(i==1) return 5
-  if(i==2) return 2
-  if(i==3) return 12})
-  .style("fill", function (d, i) { if(i==0) return d
-    if(i==1) return d
-    if(i==2) return "Black"
-    if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-  .attr("x", 1.5*legendPos.width)
-  .attr("y", 0.7*legendPos.height)
-  .style('font-size', 7)
-  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
-  if(i==1) return "High % of Subscribers"
-  if(i==2) return d
-  if(i==3) return d;});
-
-
-});
-})
-
-
-///////////////////Q4 Data///////////////////
-
-d3.select("#Q4Arrivals").on("click", function() {
-
-  d3.select("svg").remove();
-
-  var width = 1500,
-  height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-  x: 900,
-  y: 500,
-  width: 20,
-  height: 20
-};
-
-var mapzoom = d3.mapzoom()
-    .center(center)
-    .scale(scale)
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStationsQ4.csv", function(data) {
- data.forEach(function(d) {
-
-    d.coord = [d.latitude, d.longitude]
-      .map(parseFloat)
-      .reverse();
-
-    
- });
-
- var colorScale = d3.scale.linear()
-  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
-  .range(['#084594', '#eff3ff']);
-
-  var sizeScale = d3.scale.linear()
-    .domain([1,10000])
-    .range([2, 5]);
-
-  console.log(sizeScale.domain());
-
- var circles = svg.append("g")
-  .selectAll("circle")
-    .data(data)
-  .enter().append("circle")
-    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
-    .attr("stroke", "black");
-    
-  circles
-      .append("title")
-      .text(function(d) { return d["name"] + '\n' 
-      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-      + 'Average age: ' + d["avg_age"] + '\n' 
-      + 'Percent Male: ' + d["perc_male"] + '\n' 
-      + 'Percent Subscribers: ' + d["perc_subs"] 
-  });
-
-
- mapzoom.addLayer(function() {      
-      circles
-          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-  });
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
-  .enter()
-  .append("g")
-  .attr("class", "legend")
-  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-  .attr('r', function (d, i) { if(i==0) return 5
-  if(i==1) return 5
-  if(i==2) return 2
-  if(i==3) return 12})
-  .style("fill", function (d, i) { if(i==0) return d
-    if(i==1) return d
-    if(i==2) return "Black"
-    if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-  .attr("x", 1.5*legendPos.width)
-  .attr("y", 0.7*legendPos.height)
-  .style('font-size', 7)
-  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
-  if(i==1) return "High % of Subscribers"
-  if(i==2) return d
-  if(i==3) return d;});
-
-
-});
-})
-
-
-///////////////////Back to Original Data///////////////////
-
-d3.select("#AllArrivals").on("click", function() {
-
-  d3.select("svg").remove();
-
-var width = 1500,
-  height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-  x: 900,
-  y: 500,
-  width: 20,
-  height: 20
-};
-
-var mapzoom = d3.mapzoom()
-    .center(center)
-    .scale(scale)
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStations.csv", function(data) {
- data.forEach(function(d) {
-
-    d.coord = [d.latitude, d.longitude]
-      .map(parseFloat)
-      .reverse();
-
-    
- });
-
- var colorScale = d3.scale.linear()
-  .domain([d3.min(data, function(d) { return d.perc_subs; }), d3.max(data, function(d) { return d.perc_subs; })])
-  .range(['#084594', '#eff3ff']);
-
-  var sizeScale = d3.scale.linear()
-    .domain([1,10000])
-    .range([2, 5]);
-
- var circles = svg.append("g")
-  .selectAll("circle")
-    .data(data)
-  .enter().append("circle")
-    .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-    .attr("fill", function(d) { return colorScale(d["perc_subs"])})
-    .attr("stroke", "black");
-    
-  circles
-      .append("title")
-      .text(function(d) { return d["name"] + '\n' 
-      + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-      + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-      + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-      + 'Average age: ' + d["avg_age"] + '\n' 
-      + 'Percent Male: ' + d["perc_male"] + '\n' 
-      + 'Percent Subscribers: ' + d["perc_subs"] 
-  });
-
-
- mapzoom.addLayer(function() {      
-      circles
-          .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-  });
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-  .data(['#084594', '#eff3ff', "Low # of Arrivals", "High # of Arrivals"])
-  .enter()
-  .append("g")
-  .attr("class", "legend")
-  .attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-  .attr('r', function (d, i) { if(i==0) return 5
-  if(i==1) return 5
-  if(i==2) return 2
-  if(i==3) return 12})
-  .style("fill", function (d, i) { if(i==0) return d
-    if(i==1) return d
-    if(i==2) return "Black"
-    if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-  .attr("x", 1.5*legendPos.width)
-  .attr("y", 0.7*legendPos.height)
-  .style('font-size', 7)
-  .text(function(d, i) { if(i==0) return "Low % of Subscribers" 
-  if(i==1) return "High % of Subscribers"
-  if(i==2) return d
-  if(i==3) return d;});
-
-
-});
-})
-
-///////////////////Average Trip Duration as Color///////////////////
-
-d3.select("#TripLength").on("click", function() {
-
-d3.select("svg").remove();
-
-var width = 1500,
-height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-x: 900,
-y: 500,
-width: 20,
-height: 20
-};
-
-var mapzoom = d3.mapzoom()
-  .center(center)
-  .scale(scale)
-
-var svg = d3.select("body").append("svg")
-  .attr("width", width)
-  .attr("height", height)
-  .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStations.csv", function(data) {
-data.forEach(function(d) {
-
-  d.coord = [d.latitude, d.longitude]
-    .map(parseFloat)
-    .reverse();
-
-  
-});
-
-var colorScale = d3.scale.linear()
-.domain([120, 190])
-.range(['#fee5d9', '#99000d']);
-
-var sizeScale = d3.scale.linear()
-  .domain([1,10000])
-  .range([2, 5]);
-
-var circles = svg.append("g")
-.selectAll("circle")
-  .data(data)
-.enter().append("circle")
-  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-  .attr("fill", function(d) { return colorScale(d["avg_trip_duration"])})
-  .attr("stroke", "black");
-  
-circles
-    .append("title")
-    .text(function(d) { return d["name"] + '\n' 
-    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-    + 'Average age: ' + d["avg_age"] + '\n' 
-    + 'Percent Male: ' + d["perc_male"] + '\n' 
-    + 'Percent Subscribers: ' + d["perc_subs"] 
-});
-
-
-mapzoom.addLayer(function() {      
-    circles
-        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-});
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-.data(['#fee5d9', '#99000d', "Low # of Arrivals", "High # of Arrivals"])
-.enter()
-.append("g")
-.attr("class", "legend")
-.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-.attr('r', function (d, i) { if(i==0) return 5
-if(i==1) return 5
-if(i==2) return 2
-if(i==3) return 12})
-.style("fill", function (d, i) { if(i==0) return d
-  if(i==1) return d
-  if(i==2) return "Black"
-  if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-.attr("x", 1.5*legendPos.width)
-.attr("y", 0.7*legendPos.height)
-.style('font-size', 7)
-.text(function(d, i) { if(i==0) return "Shorter Trips" 
-if(i==1) return "Longer Trips"
-if(i==2) return d
-if(i==3) return d;});
-
-
-});
-})
-
-
-///////////////////Average Age as Color///////////////////
-
-d3.select("#Age").on("click", function() {
-
-d3.select("svg").remove();
-
-var width = 1500,
-height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-x: 900,
-y: 500,
-width: 20,
-height: 20
-};
-
-var mapzoom = d3.mapzoom()
-  .center(center)
-  .scale(scale)
-
-var svg = d3.select("body").append("svg")
-  .attr("width", width)
-  .attr("height", height)
-  .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStations.csv", function(data) {
-data.forEach(function(d) {
-
-  d.coord = [d.latitude, d.longitude]
-    .map(parseFloat)
-    .reverse();
-
-  
-});
-
-var colorScale = d3.scale.linear()
-.domain([30, 43])
-.range(['#dadaeb', '#4a1486']);
-
-var sizeScale = d3.scale.linear()
-  .domain([1,10000])
-  .range([2, 5]);
-
-var circles = svg.append("g")
-.selectAll("circle")
-  .data(data)
-.enter().append("circle")
-  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-  .attr("fill", function(d) { return colorScale(d["avg_age"])})
-  .attr("stroke", "black");
-  
-circles
-    .append("title")
-    .text(function(d) { return d["name"] + '\n' 
-    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-    + 'Average age: ' + d["avg_age"] + '\n' 
-    + 'Percent Male: ' + d["perc_male"] + '\n' 
-    + 'Percent Subscribers: ' + d["perc_subs"] 
-});
-
-
-mapzoom.addLayer(function() {      
-    circles
-        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-});
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-.data(['#dadaeb', '#4a1486', "Low # of Arrivals", "High # of Arrivals"])
-.enter()
-.append("g")
-.attr("class", "legend")
-.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-.attr('r', function (d, i) { if(i==0) return 5
-if(i==1) return 5
-if(i==2) return 2
-if(i==3) return 12})
-.style("fill", function (d, i) { if(i==0) return d
-  if(i==1) return d
-  if(i==2) return "Black"
-  if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-.attr("x", 1.5*legendPos.width)
-.attr("y", 0.7*legendPos.height)
-.style('font-size', 7)
-.text(function(d, i) { if(i==0) return "Younger Average Age" 
-if(i==1) return "Older Average Age"
-if(i==2) return d
-if(i==3) return d;});
-
-
-});
-})
-
-
-///////////////////Gender as Color///////////////////
-
-d3.select("#Gender").on("click", function() {
-
-d3.select("svg").remove();
-
-var width = 1500,
-height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-x: 900,
-y: 500,
-width: 20,
-height: 20
-};
-
-var mapzoom = d3.mapzoom()
-  .center(center)
-  .scale(scale)
-
-var svg = d3.select("body").append("svg")
-  .attr("width", width)
-  .attr("height", height)
-  .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStations.csv", function(data) {
-data.forEach(function(d) {
-
-  d.coord = [d.latitude, d.longitude]
-    .map(parseFloat)
-    .reverse();
-
-  
-});
-
-var colorScale = d3.scale.linear()
-.domain([.5, .9])
-.range(['#c51b7d', '#4d9221']);
-
-var sizeScale = d3.scale.linear()
-  .domain([1,10000])
-  .range([2, 5]);
-
-var circles = svg.append("g")
-.selectAll("circle")
-  .data(data)
-.enter().append("circle")
-  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-  .attr("fill", function(d) { return colorScale(d["perc_male"])})
-  .attr("stroke", "black");
-  
-circles
-    .append("title")
-    .text(function(d) { return d["name"] + '\n' 
-    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-    + 'Average age: ' + d["avg_age"] + '\n' 
-    + 'Percent Male: ' + d["perc_male"] + '\n' 
-    + 'Percent Subscribers: ' + d["perc_subs"] 
-});
-
-
-mapzoom.addLayer(function() {      
-    circles
-        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-});
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-.data(['#c51b7d', '#4d9221', "Low # of Arrivals", "High # of Arrivals"])
-.enter()
-.append("g")
-.attr("class", "legend")
-.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-.attr('r', function (d, i) { if(i==0) return 5
-if(i==1) return 5
-if(i==2) return 2
-if(i==3) return 12})
-.style("fill", function (d, i) { if(i==0) return d
-  if(i==1) return d
-  if(i==2) return "Black"
-  if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-.attr("x", 1.5*legendPos.width)
-.attr("y", 0.7*legendPos.height)
-.style('font-size', 7)
-.text(function(d, i) { if(i==0) return "Higher % Female" 
-if(i==1) return "Higher % Male"
-if(i==2) return d
-if(i==3) return d;});
-
-
-});
-})
-
-
-///////////////////Net Traffic as Color///////////////////
-
-d3.select("#NetTraffic").on("click", function() {
-
-d3.select("svg").remove();
-
-var width = 1500,
-height = 2000;
-
-var center = [-87.6847, 41.900], scale = 60000;
-
-var legendPos = {
-x: 900,
-y: 500,
-width: 20,
-height: 20
-};
-
-var mapzoom = d3.mapzoom()
-  .center(center)
-  .scale(scale)
-
-var svg = d3.select("body").append("svg")
-  .attr("width", width)
-  .attr("height", height)
-  .call(mapzoom);
-
-var frame = svg.append("g")
-
-mapzoom.addTileLayer(frame, "tile.openstreetmap.fr/hot/", "ab");
-
-var projection = mapzoom.projection()
-
-d3.csv("DivvyStations.csv", function(data) {
-data.forEach(function(d) {
-
-  d.coord = [d.latitude, d.longitude]
-    .map(parseFloat)
-    .reverse();
-
-  d.net = d.n_of_trips_to - d.n_of_trips_from;
-
-  
-});
-
-var colorScale = d3.scale.linear()
-.domain([-10000,10000])
-.range(['#b2182b', '#2166ac']);
-
-var sizeScale = d3.scale.linear()
-  .domain([1,10000])
-  .range([2, 5]);
-
-var circles = svg.append("g")
-.selectAll("circle")
-  .data(data)
-.enter().append("circle")
-  .attr("r", function(d) { return sizeScale(d["n_of_trips_to"])})
-  .attr("fill", function(d) { return colorScale(d["net"])})
-  .attr("stroke", "black");
-  
-circles
-    .append("title")
-    .text(function(d) { return d["name"] + '\n' 
-    + 'Number of departures: ' + d["n_of_trips_from"] + '\n' 
-    + 'Number of arrivals: ' + d["n_of_trips_to"] + '\n' 
-    + 'Average trip duration: ' + d["avg_trip_duration"] + '\n' 
-    + 'Average age: ' + d["avg_age"] + '\n' 
-    + 'Percent Male: ' + d["perc_male"] + '\n' 
-    + 'Percent Subscribers: ' + d["perc_subs"] 
-});
-
-
-mapzoom.addLayer(function() {      
-    circles
-        .attr("transform", function(d) { return "translate(" + projection(d.coord) + ")" })
-});
-
-// Create Color Legend
-
-var colorLegend1 = svg.selectAll(".legend")
-.data(['#b2182b', '#2166ac', "Low # of Arrivals", "High # of Arrivals"])
-.enter()
-.append("g")
-.attr("class", "legend")
-.attr("transform", function(d, i) { return "translate(" + legendPos.x + "," + i + legendPos.height + ")"; });
-
-colorLegend1.append("circle")
-.attr('r', function (d, i) { if(i==0) return 5
-if(i==1) return 5
-if(i==2) return 2
-if(i==3) return 12})
-.style("fill", function (d, i) { if(i==0) return d
-  if(i==1) return d
-  if(i==2) return "Black"
-  if(i==3) return "Black"; });
-
-colorLegend1.append("text")
-.attr("x", 1.5*legendPos.width)
-.attr("y", 0.7*legendPos.height)
-.style('font-size', 7)
-.text(function(d, i) { if(i==0) return "Departures > Arrivals" 
-if(i==1) return "Arrivals > Departures"
-if(i==2) return d
-if(i==3) return d;});
-
-
-});
-})
-
-
-/* Include attribution: */
-d3.select("body")
-    .append("div")
-      .text("Map data and imagery (c) Open Street Map");
-
-</script>
-<body>
+  </script>
+</body>
